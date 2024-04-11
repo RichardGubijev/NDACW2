@@ -5,7 +5,7 @@ import random as rnd
 import sys
 
 sys.setrecursionlimit(10000)
-N_SEEDS = 10
+N_SEEDS = 15
 
 
 class FindMarathonDistance:
@@ -33,20 +33,24 @@ class FindMarathonDistance:
         dist = 0
         for node in range(len(path) - 1):
             dist += self.get_length(path[node], path[node + 1])
+            if dist > 42000:
+                return 0
+        if not self.is_beginning_end_repeated(path):
+            dist += self.get_length(path[-1], path[0])
         return dist
 
     def process_cell(self, subgraph: nx.MultiDiGraph, seed):
         print("looking over subgraph nodes", len(subgraph.nodes))
         print("finding cycles...")
-        cycles = nx.simple_cycles(subgraph, length_bound=100)
+        cycles = nx.simple_cycles(subgraph)  #, length_bound=30)
         print("searching for marathon lengths...")
         for cycle in cycles:
-            if int(self.get_path_distance(cycle)) == self.__target_distance:
+            if len(cycle) < 50:
+                pass
+            elif int(self.get_path_distance(cycle)) == self.__target_distance:
                 self.__marathon_paths[seed] = cycle
                 print("MARATHON!!")
                 break
-            else:
-                print("Not working")
         print(self.__marathon_paths)
         print("-" * 50)
 
@@ -67,12 +71,12 @@ if __name__ == '__main__':
     print("number of all nodes: ", len(all_nodes))
 
     # TODO: choose seeds carefully, with respect to k-means yet
-    seeds = rnd.choices(all_nodes, k=10)
+    seeds = rnd.choices(all_nodes, k=N_SEEDS)
     cells = nx.voronoi_cells(query_place_graph, seeds, weight='length')
 
     min_iteration = 0
     min_len = 100000
-    for i in range(10):
+    for i in range(N_SEEDS):
         length = len(cells[seeds[i]])
         if length < min_len:
             min_len = length
