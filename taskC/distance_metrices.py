@@ -2,84 +2,89 @@ import networkx as nx
 import multiprocessing as mp
 import pickle
 import random as rnd
+import sys
+
+sys.setrecursionlimit(10000)
+N_SEEDS = 15
 
 
-class CustomBFS:
-    def __init__(self, graph: nx.MultiDiGraph, nodes: set, find_one_circular=True):
+class FindMarathonDistance:
+    def __init__(self, graph, cells: dict, seeds: list):
         self.__graph = graph
-        self.__nodes = nodes
+        self.__cells = cells
+        self.__seeds = seeds
+        self.__marathon_paths = {}
         self.__target_distance: int = 42000
-        self.__target_paths = []
-        self.__circular_paths = []
-        self.__find_one_circular = find_one_circular
-        self.__one_circular_path_found = False
 
-    def __bfs_single(self, node, current_path: list, current_distance, start_node, visited) -> None:  # Now returns None
-        if current_distance > self.__target_distance:
-            return
+    def get_cell_nodes(self, index):
+        return self.__cells[self.__seeds[index]]
 
-        if int(current_distance) == self.__target_distance:
-            self.__target_paths.append(current_path.copy())
-            print("is start equal to end", current_path[0] == current_path[-1])
+    @staticmethod
+    def is_beginning_end_repeated(path) -> bool:
+        return path[0] == path[-1]
 
-        visited.add(node)
-        for neighbor in self.__graph.neighbors(node):
-            # we only check for the nodes inside the cell
-            if neighbor not in self.__nodes:
-                continue
-            # We don't want to revisit already visited nodes
-            if neighbor in visited:
-                continue
-            # Some paths don't have data, so we just continue
-            edge_data = self.__graph.get_edge_data(neighbor, node)
-            if edge_data is None:
-                continue
-            distance = edge_data[0]['length']
-            # We check if there exists a circular path, if so we append it to the circular paths
-            if start_node == neighbor and int(distance) == self.__target_distance:
-                self.__circular_paths.append(start_node)
-                print("circular found yesss")
-                if self.__find_one_circular:
-                    self.__one_circular_path_found = True
-                    break
-                continue
+    def get_length(self, node1, node2) -> float:
+        edge_data = self.__graph.get_edge_data(node1, node2)
+        if edge_data is None:
+            return 0
+        return edge_data[0]['length']
 
-            # we do BFS
-            current_path.append(neighbor)
-            current_distance += distance
-            self.__bfs_single(neighbor, current_path, current_distance, start_node, visited)
-            current_path.pop()
-            current_distance -= distance
+    def get_path_distance(self, path: list) -> float:
+        dist = 0
+        for node in range(len(path) - 1):
+            dist += self.get_length(path[node], path[node + 1])
+            if dist > 42000:
+                return 0
+        if not self.is_beginning_end_repeated(path):
+            dist += self.get_length(path[-1], path[0])
+        return dist
 
-        visited.remove(node)
-
-    def bfs(self):
-        for node in self.__nodes:
-            if self.__one_circular_path_found:
+    def process_cell(self, subgraph: nx.MultiDiGraph, seed):
+        print("looking over subgraph nodes", len(subgraph.nodes))
+        print("finding cycles...")
+        cycles = nx.simple_cycles(subgraph)  #, length_bound=30)
+        print("searching for marathon lengths...")
+        for cycle in cycles:
+            if len(cycle) < 50:
+                pass
+            elif int(self.get_path_distance(cycle)) == self.__target_distance:
+                self.__marathon_paths[seed] = cycle
+                print("MARATHON!!")
                 break
-            self.__bfs_single(node, [node], 0, node, set())
-        return self.__target_paths, self.__circular_paths
+        print(self.__marathon_paths)
+        print("-" * 50)
+
+    def find_marathon_paths(self):
+        # TODO: multiprocess this
+        for i in range(N_SEEDS):
+            cell_node = self.get_cell_nodes(i)
+            self.process_cell(cell_node, seeds[i])
+        return self.__marathon_paths
 
 
-N_SEEDS = 10
+if __name__ == '__main__':
 
-with open('../my_graph.pickle', 'rb') as f:
-    query_place_graph = pickle.load(f)
+    with open('../leeds_drive.pickle', 'rb') as f:
+        query_place_graph = pickle.load(f)
 
-all_nodes = list(query_place_graph.nodes)
+    all_nodes = list(query_place_graph.nodes)
+    print("number of all nodes: ", len(all_nodes))
 
-# TODO: choose seeds carefully, with respect to idk yet
-seeds = rnd.choices(all_nodes, k=10)
-cells = nx.voronoi_cells(query_place_graph, seeds, weight='length')
+    # TODO: choose seeds carefully, with respect to k-means yet
+    seeds = rnd.choices(all_nodes, k=N_SEEDS)
+    cells = nx.voronoi_cells(query_place_graph, seeds, weight='length')
 
-min_iteration = 0
-min_len = 100000
-for i in range(10):
-    length = len(cells[seeds[i]])
-    if length < min_len:
-        min_len = length
-        min_iteration = i
+    min_iteration = 0
+    min_len = 100000
+    for i in range(N_SEEDS):
+        length = len(cells[seeds[i]])
+        if length < min_len:
+            min_len = length
+            min_iteration = i
 
-cell = cells[seeds[min_iteration]]
-custom_dfs = CustomBFS(query_place_graph, cell)
-custom_dfs.bfs()
+    cell = cells[seeds[min_iteration]]
+    subgraph = query_place_graph.subgraph(cell)
+    print("number of subgraph nodes: ", len(subgraph.nodes))
+
+    marathon = FindMarathonDistance(query_place_graph, cells, seeds)
+    marathon.process_cell(subgraph, seeds[min_iteration])
