@@ -3,6 +3,8 @@ import multiprocessing as mp
 import pickle
 import random as rnd
 import sys
+import matplotlib.pyplot as plt
+from seeder import get_seeds_with_kmeans
 
 sys.setrecursionlimit(10000)
 N_SEEDS = 15
@@ -42,15 +44,24 @@ class FindMarathonDistance:
     def process_cell(self, subgraph: nx.MultiDiGraph, seed):
         print("looking over subgraph nodes", len(subgraph.nodes))
         print("finding cycles...")
-        cycles = nx.simple_cycles(subgraph)  #, length_bound=30)
+        cycles = nx.simple_cycles(subgraph)
         print("searching for marathon lengths...")
         for cycle in cycles:
             if len(cycle) < 50:
                 pass
-            elif int(self.get_path_distance(cycle)) == self.__target_distance:
+            path_distance = self.get_path_distance(cycle)
+            if int(path_distance) > 20000:
+                print("path distance: ", self.get_path_distance(cycle))
+                print("cycle length: ", len(cycle))
+            if int(path_distance) == 21000:
+                print("DO 2 ROUNDS")
+            if int(path_distance) == 42000:
+                print("DO 1 ROUND")
+            if int(self.get_path_distance(cycle)) == self.__target_distance:
                 self.__marathon_paths[seed] = cycle
                 print("MARATHON!!")
                 break
+            print("-" * 50)
         print(self.__marathon_paths)
         print("-" * 50)
 
@@ -62,29 +73,34 @@ class FindMarathonDistance:
         return self.__marathon_paths
 
 
-if __name__ == '__main__':
+def sort_seeds(seeds, cells) -> list:
+    return sorted(seeds, key=lambda seed: len(cells[seed]))
 
+
+if __name__ == '__main__':
     with open('../leeds_drive.pickle', 'rb') as f:
         query_place_graph = pickle.load(f)
 
     all_nodes = list(query_place_graph.nodes)
-    print("number of all nodes: ", len(all_nodes))
-
-    # TODO: choose seeds carefully, with respect to k-means yet
-    seeds = rnd.choices(all_nodes, k=N_SEEDS)
+    seeds = get_seeds_with_kmeans(query_place_graph, N_SEEDS)
     cells = nx.voronoi_cells(query_place_graph, seeds, weight='length')
+    sorted_seeds = sort_seeds(seeds, cells)
 
-    min_iteration = 0
-    min_len = 100000
-    for i in range(N_SEEDS):
-        length = len(cells[seeds[i]])
-        if length < min_len:
-            min_len = length
-            min_iteration = i
-
-    cell = cells[seeds[min_iteration]]
-    subgraph = query_place_graph.subgraph(cell)
-    print("number of subgraph nodes: ", len(subgraph.nodes))
+    cell1 = cells[sorted_seeds[0]]
+    subgraph1 = query_place_graph.subgraph(cell1)
+    # cell2 = cells(sorted_seeds[1])
+    # subgraph2 = query_place_graph.subgraph(cell2)
+    # cell3 = cells(sorted_seeds[2])
+    # subgraph3 = query_place_graph.subgraph(cell3)
 
     marathon = FindMarathonDistance(query_place_graph, cells, seeds)
-    marathon.process_cell(subgraph, seeds[min_iteration])
+    marathon.process_cell(subgraph1, sorted_seeds[0])
+    plt.show()
+
+
+
+
+
+
+
+
