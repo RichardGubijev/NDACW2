@@ -2,12 +2,13 @@ import networkx as nx
 import multiprocessing as mp
 from multiprocessing import Pool, Lock
 import pickle
-import sys
 import matplotlib.pyplot as plt
+from descartes import PolygonPatch
 
-from voronoi_tutorial_helpers import get_colours
 from seeder import get_seeds_with_kmeans
 import osmnx as ox
+from voronoi_tutorial_helpers import nodes_nearest_seed, get_seed_color, map_node_color_from_seed, map_edge_color_from_node
+
 
 N_SEEDS = 15
 mutex = Lock()
@@ -87,8 +88,8 @@ class FindMarathonDistance:
         return marathon_path
 
     def worker_func(self, i):
-        seed = seeds[i]
-        subgraph = self.__graph.subgraph(cells[seed])
+        seed = self.__seeds[i]
+        subgraph = self.__graph.subgraph(self.__cells[seed])
         return self.process_cell(subgraph, seed)
 
     def find_marathon_paths(self):
@@ -103,10 +104,6 @@ class FindMarathonDistance:
         return self.__marathon_paths  # convert back to regular list
 
 
-def sort_seeds(seeds, cells) -> list:
-    return sorted(seeds, key=lambda seed: len(cells[seed]))
-
-
 if __name__ == '__main__':
     with open('../leeds_drive.pickle', 'rb') as f:
         query_place_graph = pickle.load(f)
@@ -114,7 +111,6 @@ if __name__ == '__main__':
     all_nodes = list(query_place_graph.nodes)
     seeds = get_seeds_with_kmeans(query_place_graph, N_SEEDS)
     cells = nx.voronoi_cells(query_place_graph, seeds, weight='length')
-    sorted_seeds = sort_seeds(seeds, cells)
 
     # marathon = FindMarathonDistance(query_place_graph, cells, seeds)
     # marathon.find_marathon_paths()
@@ -128,8 +124,24 @@ if __name__ == '__main__':
 
     colors = ['red', 'blue', 'green']  # add more colors as needed
 
-    # Plot the routes with different colors
-    fig, ax = ox.plot_graph(query_place_graph, show=False, close=False)
-    for route, color in zip(paths, colors):
-        ox.plot_graph_route(query_place_graph, route, route_color=color, orig_dest_size=0, ax=ax, show=False, close=False)
+    black_color = (0.0, 0.0, 0.0, 1.0)
+    node_seed_dict = nodes_nearest_seed(query_place_graph, seeds, cells)
+    seed_colors = get_seed_color(seeds, black_color)
+    node_color_dict = map_node_color_from_seed(query_place_graph, node_seed_dict, seed_colors)
+    edge_colors = map_edge_color_from_node(query_place_graph, node_seed_dict, node_color_dict, black_color)
+
+    node_colors = ['r' if node in seeds else 'w' for node in all_nodes]
+    fig, ax = ox.plot.plot_graph(query_place_graph, edge_color=edge_colors, node_color=node_colors, bgcolor='k',
+                       show=False,
+    save=True,
+                       filepath='nvd.png', node_size=1, figsize=(15, 15))
+
+    for path in paths:
+        x = [query_place_graph.nodes[node]['x'] for node in path]
+        y = [query_place_graph.nodes[node]['y'] for node in path]
+        ax.plot(x, y, color='red', linewidth=2)
+
     plt.show()
+    # plot_paths(query_place_graph, paths)
+    #
+    # plt.show()
