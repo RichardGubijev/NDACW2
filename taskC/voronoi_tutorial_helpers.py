@@ -11,7 +11,7 @@ def nearest_from_list(node_distances):
 
 
 def map_node_color_from_seed(graph, node_seed_dict, seed_colors):
-    return {node: seed_colors[node_seed_dict[node]] for node in graph.__nodes}
+    return {node: seed_colors[node_seed_dict[node]] for node in graph.nodes}
 
 
 def nearest_seed(node, distances, seeds):
