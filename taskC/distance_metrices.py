@@ -4,7 +4,6 @@ from multiprocess import Pool
 import pickle
 import matplotlib.pyplot as plt
 import osmnx as ox
-import time
 
 N_SEEDS = 10
 
@@ -56,9 +55,6 @@ class FindMarathonDistance:
         print("searching for marathon lengths...")
         marathon_path = None
         for cycle in cycles:
-            # # to save time we want to
-            # if len(cycle) < 20:
-            #     continue
             path_distance = self.get_path_distance(cycle)
             if (int(path_distance) == 10500
                     or int(path_distance) == 21000
@@ -91,14 +87,13 @@ class FindMarathonDistance:
         return self.process_cell(subgraph, seed)
 
     def find_marathon_paths(self):
-        start_time = time.time()
         with Pool(mp.cpu_count()) as pool:
             for marathon_path in pool.imap_unordered(self.worker_func, range(N_SEEDS)):
                 if marathon_path is not None:
                     print(marathon_path)
                     self.__marathon_paths.append(marathon_path)
-                # Stop the jobs if 3 marathon paths has been found, and it's been more than 20min
-                if len(self.__marathon_paths) >= 3 and (time.time() - start_time > 1200):
+                if len(self.__marathon_paths) >= 3:
+                    print("Terminating")
                     pool.terminate()
                     break
         return self.__marathon_paths
