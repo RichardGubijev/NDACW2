@@ -1,16 +1,11 @@
 import networkx as nx
 import multiprocess as mp
-from multiprocess import Pool, Lock
+from multiprocess import Pool
 import pickle
 import matplotlib.pyplot as plt
+import osmnx as ox
 
-# from descartes import PolygonPatch
-#
-# from seeder import get_seeds_with_kmeans
-# import osmnx as ox
-
-N_SEEDS = 15
-mutex = Lock()
+N_SEEDS = 10
 
 
 class FindMarathonDistance:
@@ -62,28 +57,30 @@ class FindMarathonDistance:
         for cycle in cycles:
             if len(cycle) < 20:
                 continue
-
             path_distance = self.get_path_distance(cycle)
-            if int(path_distance) == 10500 or int(path_distance) == 21000 or int(
-                    path_distance) == self.__target_distance:
+            if (int(path_distance) == 10500
+                    or int(path_distance) == 21000
+                    or int(path_distance) == self.__target_distance):
                 print("there is hope!")
-                with mutex:
-                    if int(path_distance) == 10500:
-                        new_cycle = self.update_cycle(cycle)
-                        marathon_path = new_cycle + new_cycle[1:] + new_cycle[1:] + new_cycle[1:]
-                        print("DO 4 ROUNDS")
-                        break
-                    elif int(path_distance) == 21000:
-                        new_cycle = self.update_cycle(cycle)
-                        marathon_path = new_cycle + new_cycle[1:]
-                        print("DO 2 ROUNDS")
-                        break
-                    elif int(path_distance) == self.__target_distance:
-                        new_cycle = self.update_cycle(cycle)
-                        marathon_path = new_cycle
-                        print("MARATHON!!")
-                        break
+                marathon_path = self.__get_marathon_path(cycle, path_distance)
+                break
         print("Found a marathon path")
+        return marathon_path
+
+    def __get_marathon_path(self, cycle: list, path_distance: float) -> list:
+        marathon_path = []
+        if int(path_distance) == 10500:
+            new_cycle = self.update_cycle(cycle)
+            marathon_path = new_cycle + new_cycle[1:] + new_cycle[1:] + new_cycle[1:]
+            print("DO 4 ROUNDS")
+        elif int(path_distance) == 21000:
+            new_cycle = self.update_cycle(cycle)
+            marathon_path = new_cycle + new_cycle[1:]
+            print("DO 2 ROUNDS")
+        elif int(path_distance) == self.__target_distance:
+            new_cycle = self.update_cycle(cycle)
+            marathon_path = new_cycle
+            print("MARATHON!!")
         return marathon_path
 
     def worker_func(self, i):
@@ -98,9 +95,9 @@ class FindMarathonDistance:
                     print(marathon_path)
                     self.__marathon_paths.append(marathon_path)
                 if len(self.__marathon_paths) >= 3:
-                    pool.terminate()  # terminate all worker processes
+                    pool.terminate()
                     break
-        return self.__marathon_paths  # convert back to regular list
+        return self.__marathon_paths
 
 
 if __name__ == '__main__':
