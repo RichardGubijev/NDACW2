@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,pycharm,visualstudiocode,venv,linux,windows,macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,pycharm,visualstudiocode,venv,linux,windows,macos
 
+# Richard's Waste
+TaskD/archive
+
 ### Linux ###
 *~
 
